@@ -1,3 +1,18 @@
+/* ================= GLOBAL: fix Android "stuck scroll" after viewport resize ================= */
+// بعض متصفحات أندرويد لا تُعيد حساب ارتفاع الصفحة بشكل صحيح بعد أي حدث يغيّر حجم
+// "الـ visual viewport" مؤقتاً — لوحة المفاتيح، أو نافذة إذن الميكروفون، أو تدوير الشاشة —
+// فتبقى الصفحة "عالقة" عند عدم القدرة على التمرير لآخرها. هذا يفرض على المتصفح إعادة
+// الحساب كل مرة يتغيّر فيها حجم العرض المرئي، مهما كان سبب التغيير.
+if(window.visualViewport){
+  window.visualViewport.addEventListener('resize', ()=>{
+    requestAnimationFrame(()=>{
+      window.scrollTo(0, window.scrollY);
+      document.body.style.minHeight = (window.visualViewport.height+1)+'px';
+      requestAnimationFrame(()=> document.body.style.minHeight = '');
+    });
+  });
+}
+
 /* ================= LOCK SCREEN ================= */
 // التحقق يتم بمقارنة بصمة SHA-256 لكلمة المرور، لا بتخزينها نصاً صريحاً في الكود.
 // تنبيه: هذه حماية بسيطة لمنع التصفح العشوائي فقط وليست تشفيراً حقيقياً — أي شخص
@@ -512,12 +527,14 @@ function autoCorrelate(buf, sampleRate){
 }
 
 let singRunning=false;
+const SING_DURATION_MS = 20000;
 function renderSing(){
   const panel = el('div','panel'); panel.id='panel-sing';
   const box = el('div','sing-box');
   box.innerHTML = '<h3 style="margin-top:0">غنِّ نغمات المقام وسأخمّن اسمه</h3>'
-    + '<p class="desc" style="max-width:52ch;margin-inline:auto">غنِّ أو دندن صعوداً من درجة القرار حتى أعلى نغمة تعرفها ثم انزل بها مرة أخرى، في مكان هادئ وقريباً من الميكروفون، لمدة ٦ ثوانٍ.</p>'
-    + '<button class="mic-btn" id="mic-btn">🎤 ابدأ التسجيل (٦ ثوانٍ)</button>'
+    + '<p class="desc" style="max-width:52ch;margin-inline:auto">غنِّ صعوداً درجة درجة من القرار حتى أعلى نغمة تعرفها ثم انزل بها، <b>وخذ وقتك</b>: نصف ثانية إلى ثانية كاملة على كل درجة قبل الانتقال للتي تليها، في مكان هادئ وقريباً من الميكروفون. لديك حتى ٢٠ ثانية، ويمكنك إنهاء التسجيل متى انتهيت دون انتظار المدة كاملة.</p>'
+    + '<button class="mic-btn" id="mic-btn">🎤 ابدأ التسجيل (حتى ٢٠ ثانية)</button>'
+    + '<button class="play-btn ghost" id="stop-btn" style="margin-top:10px" hidden>⏹ إنهاء الآن وتحليل النتيجة</button>'
     + '<div class="sing-status" id="sing-status"></div>'
     + '<div class="pitch-live" id="pitch-live"></div>'
     + '<div class="sing-results" id="sing-results"></div>';
@@ -529,6 +546,7 @@ function renderSing(){
 async function startSingTest(){
   if(singRunning) return;
   const btn = document.getElementById('mic-btn');
+  const stopBtn = document.getElementById('stop-btn');
   const statusEl = document.getElementById('sing-status');
   const liveEl = document.getElementById('pitch-live');
   const resultsEl = document.getElementById('sing-results');
@@ -541,7 +559,8 @@ async function startSingTest(){
   try{
     const stream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true}});
     singRunning = true;
-    btn.disabled = true; btn.classList.add('rec'); btn.textContent='🔴 يسجّل الآن...';
+    btn.disabled = true; btn.classList.add('rec');
+    stopBtn.hidden = false;
     const ac = ctx();
     const src = ac.createMediaStreamSource(stream);
     const analyser = ac.createAnalyser();
@@ -549,9 +568,18 @@ async function startSingTest(){
     src.connect(analyser);
     const buf = new Float32Array(analyser.fftSize);
     const samples = [];
-    const durationMs = 6000;
     const startTime = performance.now();
-    statusEl.textContent = 'استمع... دندن نغمات المقام الآن';
+    statusEl.textContent = 'استمع... غنِّ نغمات المقام الآن، درجة بعد درجة';
+    let stoppedEarly = false;
+    stopBtn.onclick = ()=>{ stoppedEarly = true; };
+    function finish(){
+      stream.getTracks().forEach(t=>t.stop());
+      singRunning = false;
+      btn.disabled = false; btn.classList.remove('rec'); btn.textContent='🎤 حاول مرة أخرى';
+      stopBtn.hidden = true;
+      liveEl.textContent='';
+      analyzeSingResult(samples, statusEl, resultsEl);
+    }
     function tick(){
       analyser.getFloatTimeDomainData(buf);
       const f = autoCorrelate(buf, ac.sampleRate);
@@ -560,20 +588,19 @@ async function startSingTest(){
         liveEl.textContent = 'النغمة الحالية: ≈ '+f.toFixed(0)+' هرتز';
       }
       const elapsed = performance.now()-startTime;
-      if(elapsed < durationMs){
+      const secondsLeft = Math.max(0, Math.ceil((SING_DURATION_MS-elapsed)/1000));
+      btn.textContent = '🔴 يسجّل... ('+secondsLeft+' ث متبقية)';
+      if(elapsed < SING_DURATION_MS && !stoppedEarly){
         requestAnimationFrame(tick);
       } else {
-        stream.getTracks().forEach(t=>t.stop());
-        singRunning = false;
-        btn.disabled = false; btn.classList.remove('rec'); btn.textContent='🎤 حاول مرة أخرى';
-        liveEl.textContent='';
-        analyzeSingResult(samples, statusEl, resultsEl);
+        finish();
       }
     }
     requestAnimationFrame(tick);
   } catch(err){
     singRunning = false;
-    btn.disabled = false; btn.classList.remove('rec'); btn.textContent='🎤 ابدأ التسجيل (٦ ثوانٍ)';
+    btn.disabled = false; btn.classList.remove('rec'); btn.textContent='🎤 ابدأ التسجيل (حتى ٢٠ ثانية)';
+    stopBtn.hidden = true;
     if(err && err.name==='NotAllowedError'){
       statusEl.textContent = 'رُفض إذن الميكروفون. اسمح به من إعدادات المتصفح لهذا الموقع ثم أعد المحاولة.';
     } else if(err && err.name==='NotFoundError'){
@@ -585,16 +612,23 @@ async function startSingTest(){
 }
 
 function analyzeSingResult(samples, statusEl, resultsEl){
-  if(samples.length < 8){
-    statusEl.textContent = 'لم يصل صوت كافٍ وواضح. جرّب الاقتراب من الميكروفون والغناء بصوت أعلى قليلاً في مكان هادئ.';
+  if(samples.length < 12){
+    statusEl.textContent = 'لم يصل صوت كافٍ وواضح. جرّب الاقتراب من الميكروفون، والغناء بصوت أعلى قليلاً وأبطأ، في مكان أكثر هدوءاً.';
+    resultsEl.innerHTML='';
     return;
   }
   const centsAll = samples.map(f=> 1200*Math.log2(f/261.63));
+  // تحديد درجة القرار: النغمة التي تكرّرت حولها أكبر عدد من العيّنات (غالباً أول نغمة يُطيل عليها المغنّي)
   let bestTonic = centsAll[0], bestCount=-1;
   centsAll.forEach(c=>{
     const count = centsAll.filter(x=>Math.abs(x-c)<35).length;
     if(count>bestCount){ bestCount=count; bestTonic=c; }
   });
+  if(bestCount >= centsAll.length*0.9){
+    statusEl.textContent = 'بدا أنك غنّيت نغمة واحدة شبه ثابتة طوال الوقت. أعد المحاولة وحاول التنقّل فعلياً بين درجات مختلفة (اصعد ثم انزل).';
+    resultsEl.innerHTML='';
+    return;
+  }
   const bins = new Array(48).fill(0); // 1200/25=48
   centsAll.forEach(c=>{
     let rel = (c - bestTonic) % 1200;
@@ -609,13 +643,19 @@ function analyzeSingResult(samples, statusEl, resultsEl){
     for(let d=-1; d<=1; d++){ best = Math.max(best, bins[(idx+d+48)%48]); }
     return best/maxBin;
   }
+  // كل المقامات تشترك في درجة القرار نفسها (صفر)، فمطابقتها لا تميّز شيئاً.
+  // لذا يُبنى التقييم أساساً على درجات "الجنس" المميِّزة (بعد القرار مباشرة)،
+  // مع وزن أصغر لبقية درجات السلّم العلوي.
   const scores = BASICS.map(m=>{
-    const degrees = m.cents.slice(0,-1);
-    const s = degrees.reduce((acc,c)=>acc+densityAt(c),0)/degrees.length;
-    return {m, score:s};
+    const jinsDegrees = m.cents.slice(1, m.jinsLen); // درجات الجنس المميزة بدون القرار
+    const restDegrees = m.cents.slice(m.jinsLen, -1); // بقية السلّم
+    const jinsScore = jinsDegrees.length ? jinsDegrees.reduce((acc,c)=>acc+densityAt(c),0)/jinsDegrees.length : 0;
+    const restScore = restDegrees.length ? restDegrees.reduce((acc,c)=>acc+densityAt(c),0)/restDegrees.length : 0;
+    const s = jinsDegrees.length ? (jinsScore*0.75 + restScore*0.25) : restScore;
+    return {m, score: Math.max(s, 0.001)};
   }).sort((a,b)=>b.score-a.score);
   const totalScore = scores.reduce((a,b)=>a+b.score,0) || 1;
-  statusEl.textContent = 'أقرب تخمين بناءً على النغمات التي التقطتها (تقدير تقريبي وليس اختباراً معتمداً):';
+  statusEl.textContent = 'أقرب تخمين بناءً على النغمات التي التقطتها (تقدير تقريبي قائم على عدد نغمات محدود، وليس اختباراً معتمداً):';
   resultsEl.innerHTML = scores.slice(0,4).map(s=>{
     const pct = Math.round(100*s.score/totalScore);
     return '<div class="result-row"><div class="rr-top"><b>'+s.m.name+'</b><span>'+pct+'%</span></div><div class="result-bar-bg"><div class="result-bar-fill" style="width:'+pct+'%"></div></div></div>';
