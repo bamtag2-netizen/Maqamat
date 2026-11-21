@@ -611,6 +611,24 @@ async function startSingTest(){
   }
 }
 
+// وزن كل درجة = مدى "تفرّدها": درجة يشترك فيها عدد كبير من المقامات (كبعض درجات السلّم
+// العلوي الشائعة) تُعطى وزناً أقل من درجة نادرة لا تظهر إلا في مقام أو مقامين، لأنها
+// الأكثر دلالة على هوية المقام الفعلية.
+const DEGREE_WEIGHT = (()=>{
+  const counts = {};
+  BASICS.forEach(m=>{
+    const uniq = new Set(m.cents.slice(1,-1).map(c=>Math.round(c/25)*25));
+    uniq.forEach(c=>{ counts[c]=(counts[c]||0)+1; });
+  });
+  const w = {};
+  Object.keys(counts).forEach(k=>{ w[k] = 1/counts[k]; });
+  return w;
+})();
+function degreeWeight(cents){
+  const key = Math.round(cents/25)*25;
+  return DEGREE_WEIGHT[key] || 1;
+}
+
 function analyzeSingResult(samples, statusEl, resultsEl){
   if(samples.length < 12){
     statusEl.textContent = 'لم يصل صوت كافٍ وواضح. جرّب الاقتراب من الميكروفون، والغناء بصوت أعلى قليلاً وأبطأ، في مكان أكثر هدوءاً.';
@@ -618,13 +636,17 @@ function analyzeSingResult(samples, statusEl, resultsEl){
     return;
   }
   const centsAll = samples.map(f=> 1200*Math.log2(f/261.63));
-  // تحديد درجة القرار: النغمة التي تكرّرت حولها أكبر عدد من العيّنات (غالباً أول نغمة يُطيل عليها المغنّي)
-  let bestTonic = centsAll[0], bestCount=-1;
-  centsAll.forEach(c=>{
-    const count = centsAll.filter(x=>Math.abs(x-c)<35).length;
+  // تحديد درجة القرار من الجزء الأول من التسجيل تحديداً (حيث طُلب من المستخدم البدء بالقرار)،
+  // لا من كامل التسجيل، حتى لا تطغى نغمة أخرى طال الغناء عليها لاحقاً.
+  const earlyCount = Math.max(8, Math.floor(centsAll.length*0.3));
+  const earlyCents = centsAll.slice(0, earlyCount);
+  let bestTonic = earlyCents[0], bestCount=-1;
+  earlyCents.forEach(c=>{
+    const count = earlyCents.filter(x=>Math.abs(x-c)<35).length;
     if(count>bestCount){ bestCount=count; bestTonic=c; }
   });
-  if(bestCount >= centsAll.length*0.9){
+  const overallSameNoteCount = centsAll.filter(x=>Math.abs(x-bestTonic)<35).length;
+  if(overallSameNoteCount >= centsAll.length*0.9){
     statusEl.textContent = 'بدا أنك غنّيت نغمة واحدة شبه ثابتة طوال الوقت. أعد المحاولة وحاول التنقّل فعلياً بين درجات مختلفة (اصعد ثم انزل).';
     resultsEl.innerHTML='';
     return;
@@ -643,24 +665,35 @@ function analyzeSingResult(samples, statusEl, resultsEl){
     for(let d=-1; d<=1; d++){ best = Math.max(best, bins[(idx+d+48)%48]); }
     return best/maxBin;
   }
-  // كل المقامات تشترك في درجة القرار نفسها (صفر)، فمطابقتها لا تميّز شيئاً.
-  // لذا يُبنى التقييم أساساً على درجات "الجنس" المميِّزة (بعد القرار مباشرة)،
-  // مع وزن أصغر لبقية درجات السلّم العلوي.
-  const scores = BASICS.map(m=>{
-    const jinsDegrees = m.cents.slice(1, m.jinsLen); // درجات الجنس المميزة بدون القرار
-    const restDegrees = m.cents.slice(m.jinsLen, -1); // بقية السلّم
-    const jinsScore = jinsDegrees.length ? jinsDegrees.reduce((acc,c)=>acc+densityAt(c),0)/jinsDegrees.length : 0;
-    const restScore = restDegrees.length ? restDegrees.reduce((acc,c)=>acc+densityAt(c),0)/restDegrees.length : 0;
-    const s = jinsDegrees.length ? (jinsScore*0.75 + restScore*0.25) : restScore;
-    return {m, score: Math.max(s, 0.001)};
-  }).sort((a,b)=>b.score-a.score);
-  const totalScore = scores.reduce((a,b)=>a+b.score,0) || 1;
-  statusEl.textContent = 'أقرب تخمين بناءً على النغمات التي التقطتها (تقدير تقريبي قائم على عدد نغمات محدود، وليس اختباراً معتمداً):';
-  resultsEl.innerHTML = scores.slice(0,4).map(s=>{
-    const pct = Math.round(100*s.score/totalScore);
+  // التقييم يُستبعد منه درجة القرار (مشتركة بين كل المقامات ولا تميّز شيئاً)، ويُرجَّح
+  // بتفرّد كل درجة، ثم "يُشحذ" الفارق بين النتائج (رفع لقوة) بدل نسبة خطية مسطّحة،
+  // لأن الفروق الصغيرة في البيانات الخام غالباً أكبر دلالة مما تبدو عليه مباشرة.
+  const raw = BASICS.map(m=>{
+    const degrees = m.cents.slice(1,-1);
+    let wsum=0, num=0;
+    degrees.forEach(c=>{ const w=degreeWeight(c); num += w*densityAt(c); wsum += w; });
+    return {m, raw: wsum? Math.max(num/wsum, 0.0005) : 0.0005};
+  });
+  const scores = raw.map(r=>({m:r.m, score: Math.pow(r.raw, 2.5)})).sort((a,b)=>b.score-a.score);
+  const total = scores.reduce((a,b)=>a+b.score,0) || 1;
+
+  const top = scores[0], second = scores[1];
+  const ratio = second && second.score>0 ? top.score/second.score : 99;
+  let confClass, confText;
+  if(ratio>1.7){ confClass='high'; confText='ثقة أعلى نسبياً'; }
+  else if(ratio>1.2){ confClass='mid'; confText='ثقة متوسطة'; }
+  else { confClass='low'; confText='النتيجة غير حاسمة — نغماتك قريبة من أكثر من مقام'; }
+
+  statusEl.textContent = 'تقدير تقريبي مبني على النغمات الملتقطة (حدود هذه الميزة موضّحة أسفل الصفحة):';
+  const runners = scores.slice(1,4).map(s=>{
+    const pct = Math.round(100*s.score/total);
     return '<div class="result-row"><div class="rr-top"><b>'+s.m.name+'</b><span>'+pct+'%</span></div><div class="result-bar-bg"><div class="result-bar-fill" style="width:'+pct+'%"></div></div></div>';
   }).join('');
+  resultsEl.innerHTML =
+      '<div class="sing-top-pick"><div class="stp-label">التخمين الأقرب</div><div class="stp-name">'+top.m.name+'</div><div class="stp-confidence conf-'+confClass+'">'+confText+'</div></div>'
+    + '<div class="sing-runners"><div class="sing-runners-label">احتمالات أخرى أقل:</div>'+runners+'</div>';
 }
+
 
 /* ================= INIT ================= */
 initLock();
