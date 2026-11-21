@@ -16,7 +16,7 @@ function setUnlocked(){ try{ sessionStorage.setItem(LOCK_SESSION_KEY,'1'); } cat
 function initLock(){
   const overlay = document.getElementById('lock-overlay');
   if(!overlay) return;
-  if(isUnlocked()){ overlay.classList.add('hidden'); return; }
+  if(isUnlocked()){ overlay.parentNode && overlay.parentNode.removeChild(overlay); return; }
   const input = document.getElementById('lock-input');
   const btn = document.getElementById('lock-btn');
   const toggle = document.getElementById('lock-toggle');
@@ -43,7 +43,16 @@ function initLock(){
     btn.disabled = false;
     if(hash === LOCK_HASH){
       setUnlocked();
+      input.blur();
       overlay.classList.add('hidden');
+      // إزالة العنصر الثابت (position:fixed) من الصفحة تماماً بدل إخفائه فقط،
+      // ثم "نفض" حساب التمرير/الارتفاع لأن إغلاق لوحة المفاتيح الافتراضية على
+      // بعض متصفحات أندرويد يترك الصفحة أحياناً عالقة عند ارتفاع قديم حتى تتم إعادة حسابه.
+      setTimeout(()=>{
+        if(overlay.parentNode) overlay.parentNode.removeChild(overlay);
+        window.scrollTo(0, window.scrollY || 0);
+        window.dispatchEvent(new Event('resize'));
+      }, 60);
     } else {
       errEl.textContent = 'كلمة المرور غير صحيحة';
       input.value='';
@@ -430,7 +439,7 @@ let quizState = {score:0, total:0, current:null};
 function renderQuiz(){
   const panel = el('div','panel'); panel.id='panel-quiz';
   const box = el('div','quiz-box');
-  box.innerHTML = '<h3 style="margin-top:0">تدرّب على تمييز المقامات بأذنك</h3><p class="quiz-score" id="quiz-score">النتيجة: 0 / 0</p><button class="play-btn" id="quiz-play">▶ استمع لمقام عشوائي</button><div class="quiz-opts" id="quiz-opts"></div><div class="quiz-feedback" id="quiz-fb"></div>';
+  box.innerHTML = '<h3 style="margin-top:0">تدرّب على تمييز المقامات بأذنك</h3><p class="quiz-score">النتيجة: <span id="quiz-score-num" class="ltr-num">0 / 0</span></p><button class="play-btn" id="quiz-play">▶ استمع لمقام عشوائي</button><div class="quiz-opts" id="quiz-opts"></div><div class="quiz-feedback" id="quiz-fb"></div>';
   panel.appendChild(box);
   document.getElementById('panels').appendChild(panel);
   document.getElementById('quiz-play').onclick = nextQuizRound;
@@ -465,7 +474,7 @@ function nextQuizRound(){
         fb.style.color = 'var(--terracotta)';
       }
       document.querySelectorAll('#quiz-opts .opt-btn').forEach(x=>x.disabled=true);
-      document.getElementById('quiz-score').textContent = 'النتيجة: '+quizState.score+' / '+quizState.total;
+      document.getElementById('quiz-score-num').textContent = quizState.score+' / '+quizState.total;
     };
     optsWrap.appendChild(b);
   });
