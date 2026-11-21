@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>المقامات الشرقية</title>
+<meta name="description" content="دليل صوتي تفاعلي لتعلّم المقامات الشرقية الثمانية الأساسية، وتفرّعاتها في الشام واليمن والحجاز ومصر والعراق والمغرب العربي، مع إيقاعات الإنشاد والمواويل وأناشيد إسلامية">
+<meta property="og:title" content="المقامات الشرقية — دليل صوتي تفاعلي">
+<meta property="og:description" content="تعلّم المقامات العربية الثمانية الأساسية وفروعها حسب كل بلد، مع إيقاعات ومواويل وأناشيد إسلامية واختبار أذن.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect x='8' y='8' width='32' height='32' fill='none' stroke='%23a97a1f' stroke-width='3'/%3E%3Crect x='8' y='8' width='32' height='32' fill='none' stroke='%23a97a1f' stroke-width='3' transform='rotate(45 24 24)'/%3E%3Ccircle cx='24' cy='24' r='4' fill='%23a1472c'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Cairo:wght@400;600;700;800&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+
+  <header class="site-header">
+    <svg class="logo-mark" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+      <rect x="8" y="8" width="32" height="32" stroke="var(--gold)" stroke-width="2.4"/>
+      <rect x="8" y="8" width="32" height="32" stroke="var(--gold)" stroke-width="2.4" transform="rotate(45 24 24)"/>
+      <circle cx="24" cy="24" r="4" fill="var(--terracotta)"/>
+    </svg>
+    <div class="site-title">
+      <div class="brand">المقامات الشرقية</div>
+      <div class="tagline">دليل صوتي تفاعلي لتعلّم المقامات العربية</div>
+    </div>
+    <div class="progress-pill" title="عدد المقامات الأساسية التي وضعتها كمتعلَّمة">
+      <svg class="ring" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="10" fill="none" stroke="var(--line)" stroke-width="3"></circle>
+        <circle id="progress-ring-fg" cx="12" cy="12" r="10" fill="none" stroke="var(--gold)" stroke-width="3" stroke-linecap="round" transform="rotate(-90 12 12)"></circle>
+      </svg>
+      <span id="progress-count">0 / 8</span>
+    </div>
+  </header>
+
+  <div class="hero">
+    <div class="eyebrow">دليل صوتي تفاعلي</div>
+    <p>ثمانية مقامات أساسية، بمفاتيحها وأجناسها، ثم تفرّعاتها في الشام واليمن والحجاز ومصر والعراق والمغرب العربي — مع إيقاعات الإنشاد، وأنواع الموّال، وأناشيد إسلامية، واختبار لتدريب الأذن. اضغط أي دائرة أو زر للاستماع.</p>
+  </div>
+
+  <nav class="tabs" id="tabs" role="tablist"></nav>
+
+  <main id="panels"></main>
+
+  <div class="note">
+    ملاحظة: النغمات هنا مولَّدة إلكترونياً لتوضيح أبعاد كل مقام (المسافات بين درجاته) وليست بديلاً عن سماع آلات حقيقية كالعود والقانون. اخترنا طبقة صوتية موحّدة لكل المقامات لتسهيل المقارنة بينها، مع ذكر اسم درجة القرار العربية التقليدية لكل مقام. الأمثلة كلّها أناشيد وابتهالات ومواويل دينية إسلامية فقط (لا أغانٍ دنيوية)، وتصنيفها المقامي اجتهادي غير موثّق أكاديمياً — لا يمكن تضمين تسجيلات صوتية حقيقية مباشرةً لأنها محمية بحقوق الملكية، ولذلك وُضع بجانب كل مثال زر يفتح بحثاً مباشراً عنه في يوتيوب لتسمعه بصوته الأصلي وتتحقق بنفسك من مطابقته للمقام. أما اختبار «غنِّ لي» فتقدير تقريبي فقط ولا يغني عن أذن مدرّب مختص، ويحتاج تشغيل الصفحة عبر رابط HTTPS (كـ GitHub Pages) حتى يعمل المتصفح على السماح للميكروفون.
+  </div>
+
+  <footer>
+    صُنع بأسلوب تعليمي — قارن بأذنك، فالمقام يُدرَك سماعاً قبل أن يُدرَك نظرياً.
+    <div class="copyright">© جميع الحقوق محفوظة — باسم أبو أنس 2026</div>
+  </footer>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
