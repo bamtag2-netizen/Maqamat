@@ -1,3 +1,60 @@
+/* ================= LOCK SCREEN ================= */
+// التحقق يتم بمقارنة بصمة SHA-256 لكلمة المرور، لا بتخزينها نصاً صريحاً في الكود.
+// تنبيه: هذه حماية بسيطة لمنع التصفح العشوائي فقط وليست تشفيراً حقيقياً — أي شخص
+// يفتح كود الصفحة المصدري (عرض المصدر) يرى هذه البصمة ويمكنه تجاوز الحماية بمعرفة كافية.
+const LOCK_HASH = '3607571b6788edea2cd586dd2813106441a91b523bd9d2169e67b0b6efadc5c4';
+const LOCK_SESSION_KEY = 'maqamat-unlocked-v1';
+
+async function sha256Hex(str){
+  const enc = new TextEncoder().encode(str);
+  const buf = await crypto.subtle.digest('SHA-256', enc);
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+function isUnlocked(){ try{ return sessionStorage.getItem(LOCK_SESSION_KEY)==='1'; } catch(e){ return false; } }
+function setUnlocked(){ try{ sessionStorage.setItem(LOCK_SESSION_KEY,'1'); } catch(e){ /* ignore */ } }
+
+function initLock(){
+  const overlay = document.getElementById('lock-overlay');
+  if(!overlay) return;
+  if(isUnlocked()){ overlay.classList.add('hidden'); return; }
+  const input = document.getElementById('lock-input');
+  const btn = document.getElementById('lock-btn');
+  const toggle = document.getElementById('lock-toggle');
+  const errEl = document.getElementById('lock-error');
+
+  if(toggle){
+    toggle.onclick = ()=>{
+      const showing = input.type === 'text';
+      input.type = showing ? 'password' : 'text';
+      toggle.textContent = showing ? 'إظهار' : 'إخفاء';
+      input.focus();
+    };
+  }
+
+  async function tryUnlock(){
+    const val = input.value.trim();
+    if(!val) return;
+    if(!(window.crypto && window.crypto.subtle)){
+      errEl.textContent = 'هذا المتصفح لا يدعم التحقق الآمن هنا (يحتاج HTTPS). افتح الصفحة من رابط GitHub Pages.';
+      return;
+    }
+    btn.disabled = true;
+    const hash = await sha256Hex(val);
+    btn.disabled = false;
+    if(hash === LOCK_HASH){
+      setUnlocked();
+      overlay.classList.add('hidden');
+    } else {
+      errEl.textContent = 'كلمة المرور غير صحيحة';
+      input.value='';
+      input.focus();
+    }
+  }
+  btn.onclick = tryUnlock;
+  input.addEventListener('keydown', e=>{ if(e.key==='Enter') tryUnlock(); });
+  setTimeout(()=>input.focus(), 50);
+}
+
 /* ================= AUDIO ENGINE ================= */
 let actx=null;
 function ctx(){ if(!actx) actx = new (window.AudioContext||window.webkitAudioContext)(); if(actx.state==='suspended') actx.resume(); return actx; }
@@ -557,6 +614,7 @@ function analyzeSingResult(samples, statusEl, resultsEl){
 }
 
 /* ================= INIT ================= */
+initLock();
 renderTabs();
 renderBasics();
 renderCountries();
