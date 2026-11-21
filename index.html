@@ -16,6 +16,25 @@
 <body>
 <div class="app">
 
+  <div class="lock-overlay" id="lock-overlay">
+    <div class="lock-box">
+      <svg class="logo-mark" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+        <rect x="8" y="8" width="32" height="32" stroke="var(--gold)" stroke-width="2.4"/>
+        <rect x="8" y="8" width="32" height="32" stroke="var(--gold)" stroke-width="2.4" transform="rotate(45 24 24)"/>
+        <circle cx="24" cy="24" r="4" fill="var(--terracotta)"/>
+      </svg>
+      <h2>محتوى محمي</h2>
+      <p>أدخل كلمة المرور للدخول إلى دليل المقامات</p>
+      <div class="lock-input-row">
+        <input type="password" id="lock-input" class="lock-input" placeholder="••••••••" inputmode="numeric" autocomplete="off">
+        <button type="button" class="lock-toggle" id="lock-toggle">إظهار</button>
+      </div>
+      <button class="lock-btn" id="lock-btn">دخول</button>
+      <div class="lock-error" id="lock-error"></div>
+      <div class="lock-note">هذه حماية بسيطة لمنع التصفح العشوائي فقط، وليست تشفيراً حقيقياً — أي شخص يفتح كود الصفحة المصدري يمكنه تجاوزها.</div>
+    </div>
+  </div>
+
   <header class="site-header">
     <svg class="logo-mark" viewBox="0 0 48 48" fill="none" aria-hidden="true">
       <rect x="8" y="8" width="32" height="32" stroke="var(--gold)" stroke-width="2.4"/>
